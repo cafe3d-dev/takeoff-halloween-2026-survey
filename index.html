@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inquérito e Painel Privado - Halloween EPM 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #080c14;
+      color: #f8fafc;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    /* Cores Semânticas de Avaliação */
+    .color-critical { color: #ef4444; }
+    .color-weak { color: #f97316; }
+    .color-fair { color: #facc15; }
+    .color-good { color: #3b82f6; }
+    .color-excel { color: #22c55e; }
+
+    .bg-critical { background-color: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #ef4444; }
+    .bg-weak { background-color: rgba(249, 115, 22, 0.15); border-color: rgba(249, 115, 22, 0.4); color: #f97316; }
+    .bg-fair { background-color: rgba(250, 204, 21, 0.15); border-color: rgba(250, 204, 21, 0.4); color: #facc15; }
+    .bg-good { background-color: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4); color: #3b82f6; }
+    .bg-excel { background-color: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); color: #22c55e; }
+
+    /* Star Rating */
+    .star-rating {
+      display: flex;
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+      gap: 0.25rem;
+    }
+    .star-rating input { display: none; }
+    .star-rating label {
+      font-size: 1.5rem;
+      color: #475569;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input:checked ~ label {
+      color: #f59e0b;
+    }
+    
+    .tab-btn.active {
+      background-color: rgba(249, 115, 22, 0.2);
+      color: #fb923c;
+      border-color: rgba(249, 115, 22, 0.5);
+    }
+    
+    .sub-tab-btn { transition: all 0.2s; white-space: nowrap; }
+    .sub-tab-btn.active { background-color: rgba(168, 85, 247, 0.25); color: #c084fc; border-color: rgba(168, 85, 247, 0.6); }
+    .sub-tab-content { display: none; }
+    .sub-tab-content.active { display: block; }
+
+    textarea { resize: vertical; }
+
+    @media print {
+      body { background-color: #fff !important; color: #000 !important; }
+      .no-print { display: none !important; }
+      .glass-card, .glass-panel { background: #fff !important; border: 1px solid #ccc !important; color: #000 !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 flex flex-col">
+
+  <!-- CABEÇALHO DA APLICAÇÃO -->
+  <header class="max-w-7xl mx-auto w-full glass-panel rounded-3xl p-5 mb-6 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 via-amber-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg shrink-0">
+        🎃
+      </div>
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge bg-orange-500/20 text-orange-400 border border-orange-500/30">EPM 2026/2027</span>
+          <span class="badge bg-purple-500/20 text-purple-400 border border-purple-500/30" id="modeBadge">Modo Inquérito (Público)</span>
+        </div>
+        <h1 id="mainSurveyTitle" class="text-lg md:text-xl font-black text-white tracking-tight">
+          Avaliação Operacional & Painel de Gestão — Halloween EPM
+        </h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 no-print">
+      <button id="btnToggleAdmin" onclick="openPinModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2">
+        <span>🔒</span> <span>Painel Privado da Comissão (Admin)</span>
+      </button>
+      <button id="btnLogout" onclick="logoutAdmin()" class="hidden px-4 py-2 bg-red-900/40 hover:bg-red-800/60 text-red-300 text-xs font-bold rounded-xl border border-red-700/50 transition-all flex items-center gap-2">
+        <span>🚪</span> <span>Sair do Painel</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= VISTA 1: INQUÉRITO PÚBLICO ================= -->
+  <main id="publicView" class="max-w-4xl mx-auto w-full space-y-6">
+    <div class="glass-card rounded-3xl p-6 md:p-8 border border-slate-800 shadow-2xl">
+      <div class="border-b border-slate-800 pb-4 mb-6">
+        <h2 class="text-2xl font-extrabold text-white">Inquérito de Avaliação por Áreas</h2>
+        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+          Partilhe a sua avaliação detalhada sobre a organização do Halloween EPM 2026. 
+          A classificação por área é obrigatória (pode selecionar a nota de 1 a 5 ou indicar "Não sei / Não aplicável"). Os comentários e a avaliação de sub-áreas são facultativos.
+        </p>
+      </div>
+
+      <form id="surveyForm" onsubmit="submitSurvey(event)" class="space-y-8">
+        
+        <!-- IDENTIFICAÇÃO OPCIONAL -->
+        <div class="glass-card bg-slate-900/40 p-5 rounded-2xl border border-slate-700">
+          <h3 class="text-xs font-bold text-orange-400 uppercase font-mono mb-4 flex items-center gap-2">
+            <span>👤</span> Identificação (Opcional)
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Nome Completo</label>
+              <input type="text" id="respName" placeholder="Anónimo" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 focus:border-orange-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Email</label>
+              <input type="email" id="respEmail" placeholder="Opcional" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 focus:border-orange-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-300 font-semibold mb-1">Perfil no Evento *</label>
+              <select id="respRole" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-200 focus:border-orange-500 outline-none">
+                <option value="">Selecione...</option>
+                <option value="Pai / Encarregado">Pai / Mãe / Encarregado de Educação</option>
+                <option value="Aluno Finalista">Aluno Finalista (12º Ano)</option>
+                <option value="Aluno Geral">Aluno Geral (Pré ao 11º)</option>
+                <option value="Professor / Staff">Professor / Funcionário EPM</option>
+                <option value="Voluntário / Parceiro">Voluntário / Parceiro</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ÁREAS DINÂMICAS E SUB-ÁREAS -->
+        <div id="surveyAreasContainer" class="space-y-6">
+          <!-- Renderizado por JS -->
+        </div>
+
+        <!-- SUGESTÕES FINAIS -->
+        <div class="glass-card bg-slate-900/40 p-5 rounded-2xl border border-slate-700">
+          <h3 class="text-xs font-bold text-purple-400 uppercase font-mono mb-2 flex items-center gap-2">
+            <span>💡</span> Comentários Gerais, Críticas & Sugestões (Facultativo)
+          </h3>
+          <p class="text-[11px] text-slate-400 mb-3">Espaço aberto facultativo para sugestões gerais e considerações para a Feira de Natal, Baile e próximos eventos.</p>
+          <textarea id="respGeneral" rows="3" placeholder="A sua opinião global (opcional)..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:border-orange-500 outline-none"></textarea>
+        </div>
+
+        <!-- BOTÃO DE SUBMISSÃO -->
+        <div class="flex justify-end pt-4 border-t border-slate-800">
+          <button type="submit" class="px-8 py-3.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm rounded-xl shadow-lg transition-all active:scale-95">
+            Submeter Avaliação Oficial
+          </button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <!-- ================= VISTA 2: PAINEL ADMINISTRADOR ================= -->
+  <main id="adminView" class="max-w-7xl mx-auto w-full hidden space-y-6">
+    
+    <!-- Navegação de Abas do Admin -->
+    <div class="flex flex-wrap items-center gap-2 mb-4 border-b border-slate-800 pb-4">
+      <button onclick="switchAdminTab('dashboard')" id="tab-dashboard" class="tab-btn active px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold">📊 Dashboard & KPIs</button>
+      <button onclick="switchAdminTab('respostas')" id="tab-respostas" class="tab-btn px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold">📋 Ver Respostas (<span id="countResponses">0</span>)</button>
+      <button onclick="switchAdminTab('config')" id="tab-config" class="tab-btn px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold">⚙️ Gestão de Áreas & Sub-áreas</button>
+      <div class="ml-auto flex flex-wrap gap-2">
+        <button onclick="changePin()" class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-semibold text-slate-300 hover:text-white">🔑 Alterar PIN</button>
+        <button onclick="generateDemoData()" class="px-3 py-1.5 bg-purple-900/40 border border-purple-700/50 rounded-lg text-xs font-semibold text-purple-300 hover:bg-purple-800/60">⚡ Gerar Demo (50)</button>
+        <button onclick="exportExcel()" class="px-3 py-1.5 bg-emerald-900/40 border border-emerald-700/50 rounded-lg text-xs font-semibold text-emerald-300 hover:bg-emerald-800/60">📗 Exportar Excel (.xlsx)</button>
+        <button onclick="exportPDF()" class="px-3 py-1.5 bg-red-900/40 border border-red-700/50 rounded-lg text-xs font-semibold text-red-300 hover:bg-red-800/60">📄 Exportar PDF</button>
+        <button onclick="exportCSV()" class="px-3 py-1.5 bg-blue-900/40 border border-blue-700/50 rounded-lg text-xs font-semibold text-blue-300 hover:bg-blue-800/60">📥 Exportar CSV</button>
+      </div>
+    </div>
+
+    <!-- ADMIN: DASHBOARD -->
+    <div id="admin-dashboard" class="space-y-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass-card p-4 rounded-xl border-l-4 border-orange-500">
+          <span class="text-[10px] text-slate-400 font-bold uppercase">Total Submissões</span>
+          <div class="text-3xl font-black text-white" id="kpiTotal">0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-green-500">
+          <span class="text-[10px] text-slate-400 font-bold uppercase">Média Global (1 a 5)</span>
+          <div class="text-3xl font-black text-green-400" id="kpiAvg">0.0</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-blue-500">
+          <span class="text-[10px] text-slate-400 font-bold uppercase">Área Mais Forte</span>
+          <div class="text-lg font-black text-blue-400 truncate mt-1" id="kpiTopArea">-</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl border-l-4 border-red-500">
+          <span class="text-[10px] text-slate-400 font-bold uppercase">Área Mais Crítica</span>
+          <div class="text-lg font-black text-red-400 truncate mt-1" id="kpiWorstArea">-</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-card p-5 rounded-2xl border border-slate-700">
+          <h3 class="text-xs font-bold text-white mb-4">Média de Classificação por Área Operacional</h3>
+          <div class="h-64"><canvas id="chartAreas"></canvas></div>
+        </div>
+        <div class="glass-card p-5 rounded-2xl border border-slate-700">
+          <h3 class="text-xs font-bold text-white mb-4">Distribuição de Perfis dos Participantes</h3>
+          <div class="h-64 flex justify-center"><canvas id="chartRoles"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN: RESPOSTAS & LOTE -->
+    <div id="admin-respostas" class="hidden space-y-4">
+      <div class="glass-card p-5 rounded-2xl border border-slate-700 space-y-4">
+        
+        <!-- Barra de Ações em Lote e Filtro -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="toggleSelectAllResponses()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700">
+              ☑️ Selecionar / Desselecionar Todas
+            </button>
+            <button onclick="deleteSelectedResponses()" class="px-3 py-1.5 bg-red-900/50 hover:bg-red-800 text-red-200 rounded-lg text-xs font-bold border border-red-700">
+              🗑️ Apagar Selecionadas
+            </button>
+            <button onclick="resetAndSaveTestSession()" class="px-3 py-1.5 bg-purple-900/50 hover:bg-purple-800 text-purple-200 rounded-lg text-xs font-bold border border-purple-700">
+              💾 Zerar Inquérito (Guardar Sessão de Testes)
+            </button>
+          </div>
+          <div class="w-full md:w-64">
+            <input type="text" id="searchTable" onkeyup="filterTable()" placeholder="🔍 Pesquisar em respostas..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-orange-500">
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/80 text-slate-400">
+              <tr>
+                <th class="p-3 w-8"><input type="checkbox" id="selectAllHeader" onchange="toggleSelectAllResponses(this.checked)"></th>
+                <th class="p-3">ID</th>
+                <th class="p-3">Data/Hora</th>
+                <th class="p-3">Nome / Perfil</th>
+                <th class="p-3 text-center">Média Áreas</th>
+                <th class="p-3">Comentário Geral</th>
+                <th class="p-3 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-slate-800">
+              <!-- Renderizado via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN: CONFIGURAÇÕES, ÁREAS & SUB-ÁREAS -->
+    <div id="admin-config" class="hidden space-y-4">
+      <div class="glass-card p-5 rounded-2xl border border-slate-700 space-y-6">
+        
+        <!-- Título Personalizado -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Título Personalizado do Inquérito</label>
+          <div class="flex gap-2">
+            <input type="text" id="adminSurveyTitleInput" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm" placeholder="Ex: Avaliação Operacional EPM">
+            <button onclick="saveSurveyTitle()" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-bold transition-all">Guardar Título</button>
+          </div>
+        </div>
+
+        <!-- Gestão e Reordenação das Áreas e Sub-áreas -->
+        <div class="pt-4 border-t border-slate-800">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-white">Gestão & Ordem de Áreas e Sub-áreas</h3>
+              <p class="text-[11px] text-slate-400">Adicione sub-áreas a qualquer área. Ajuste a ordem utilizando os botões ⬆️ e ⬇️.</p>
+            </div>
+            <button onclick="openNewAreaModal()" class="px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-bold hover:bg-orange-500 shadow-md">
+              ➕ Adicionar Nova Área
+            </button>
+          </div>
+
+          <div id="adminAreasList" class="space-y-4">
+            <!-- Renderizado via JS -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= MODAIS ================= -->
+  
+  <!-- Modal de Confirmação de Submissão -->
+  <div id="submitSuccessModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-700 text-center space-y-5 shadow-2xl">
+      <div class="w-16 h-16 bg-green-500/20 text-green-400 border border-green-500/30 rounded-2xl flex items-center justify-center text-3xl mx-auto">
+        ✅
+      </div>
+      <div class="space-y-2">
+        <h3 class="text-xl font-extrabold text-white">Inquérito submetido com Sucesso</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">Obrigado pelo seu contributo para a melhoria dos nossos eventos!</p>
+      </div>
+      <div class="flex justify-center pt-2">
+        <button onclick="concludeSurvey()" class="px-8 py-3 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-orange-600/30 transition-all active:scale-95">
+          Concluir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal PIN -->
+  <div id="pinModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm p-6 rounded-2xl border border-slate-700 text-center space-y-4">
+      <h3 class="text-lg font-bold text-white">Acesso Reservado</h3>
+      <p class="text-xs text-slate-400">Introduza o PIN de Administrador</p>
+      <input type="password" id="inputPin" placeholder="PIN" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-center text-xl tracking-widest text-white focus:outline-none focus:border-orange-500">
+      <div class="flex gap-2 justify-center pt-2">
+        <button onclick="closePinModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Cancelar</button>
+        <button onclick="verifyPin()" class="px-6 py-2 bg-orange-600 text-white rounded-lg text-xs font-bold">Desbloquear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Alterar PIN -->
+  <div id="changePinModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-sm p-6 rounded-2xl border border-slate-700 space-y-4">
+      <h3 class="text-lg font-bold text-white text-center">Alterar PIN</h3>
+      <div class="space-y-3">
+        <input type="password" id="newPin1" placeholder="Novo PIN" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-center text-white">
+        <input type="password" id="newPin2" placeholder="Confirmar Novo PIN" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-center text-white">
+      </div>
+      <div class="flex gap-2 justify-center pt-2">
+        <button onclick="document.getElementById('changePinModal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Cancelar</button>
+        <button onclick="saveNewPin()" class="px-6 py-2 bg-green-600 text-white rounded-lg text-xs font-bold">Guardar PIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Adicionar/Editar Área -->
+  <div id="newAreaModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-lg p-6 rounded-2xl border border-slate-700 space-y-4 max-h-[90vh] overflow-y-auto">
+      <h3 id="areaModalTitle" class="text-lg font-bold text-white">Adicionar / Editar Área</h3>
+      <input type="hidden" id="editAreaId" value="">
+      
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Título da Área *</label>
+        <input type="text" id="newAreaTitle" placeholder="Ex: 8. Limpeza & Gestão de Resíduos" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-orange-500">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Descrição / Foco</label>
+        <textarea id="newAreaDesc" rows="2" placeholder="Sub-tópicos a avaliar..." class="w-full bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-orange-500"></textarea>
+      </div>
+      
+      <div class="pt-3 border-t border-slate-800 space-y-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <label class="block text-xs font-bold text-purple-400 uppercase tracking-wider">Sub-áreas / Separadores (Opcional)</label>
+            <p class="text-[10px] text-slate-400">Adicione sub-tópicos a esta área se desejar uma avaliação por abas.</p>
+          </div>
+          <button type="button" onclick="addModalSubArea()" class="text-xs bg-purple-900/50 hover:bg-purple-800 border border-purple-700 px-3 py-1.5 rounded-xl text-purple-200 font-bold transition-all">+ Adicionar Sub-área</button>
+        </div>
+        <div id="subAreasContainerList" class="space-y-2">
+          <!-- Renderizado via JS -->
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 border-t border-slate-800">
+        <button type="button" onclick="closeAreaModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">Cancelar</button>
+        <button type="button" onclick="saveNewArea()" class="px-6 py-2 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500">Guardar Área</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Resposta Detalhada -->
+  <div id="viewResponseModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 rounded-2xl border border-slate-700 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold text-white">Detalhe da Resposta <span id="vrId" class="text-orange-400 font-mono"></span></h3>
+        <button onclick="document.getElementById('viewResponseModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div id="vrContent" class="space-y-4 text-xs text-slate-300">
+        <!-- Injetado por JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT COMPLETO -->
+  <script>
+    // --- ESTADO & CONFIGURAÇÕES INICIAIS ---
+    const defaultAreas = [
+      { id: "area_1", title: "1. Segurança", desc: "Recinto, acessos no Portão 2 e Entrada 5, rondas móveis e enfermarias.", subAreas: [] },
+      { id: "area_2", title: "2. Processo de Entrada", desc: "Pré-venda (250 MT), venda à porta (300 MT), acompanhantes (350 MT) e pulseiras Brithol.", subAreas: [] },
+      { id: "area_3", title: "3. Tesouraria & Cashless", desc: "Terminais POS Arif, recargas, devoluções de saldos, fecho de caixas e controlo de numerário.", subAreas: [] },
+      { id: "area_4", title: "4. Comidas", desc: "Hambúrgueres, pregos, cachorros, pizzas e salgados PAM a preço de custo.", subAreas: [] },
+      { id: "area_5", title: "5. Bar & Bebidas", desc: "Águas Namaacha (50% doação), Compal, MEGA, limonadas e banca KandiXop (30% comissão).", subAreas: [] },
+      { id: "area_6", title: "6. Logística & Decoração", desc: "Escalas de pais e finalistas, trocas de turno, utensílios, fumo/luzes Arif e montagem na véspera.", subAreas: [] },
+      { id: "area_7", title: "7. Actividades & Animação Geral", desc: "Avaliação detalhada por atração do programa de Halloween.", subAreas: [
+          { id: "sub_7_1", title: "Desporto & Interturmas" },
+          { id: "sub_7_2", title: "Pula-pula & Karts" },
+          { id: "sub_7_3", title: "Sala FIFA & Escape Room" },
+          { id: "sub_7_4", title: "Casa de Terror N1 & N2" },
+          { id: "sub_7_5", title: "Princesas & Fotografia" },
+          { id: "sub_7_6", title: "Farmar Aura & Som/DJ Arif" }
+      ] }
+    ];
+
+    let surveyAreas = JSON.parse(localStorage.getItem('epm_areas')) || defaultAreas;
+    let responses = JSON.parse(localStorage.getItem('epm_responses')) || [];
+    let customTitle = localStorage.getItem('epm_survey_title') || "Avaliação Operacional & Painel de Gestão — Halloween EPM";
+    let isAdmin = false;
+    let currentModalSubAreas = [];
+
+    // --- INICIALIZAÇÃO ---
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('mainSurveyTitle').innerText = customTitle;
+      document.getElementById('adminSurveyTitleInput').value = customTitle;
+      renderSurveyForm();
+      updateDashboardData();
+    });
+
+    function saveSurveyTitle() {
+      const newTitle = document.getElementById('adminSurveyTitleInput').value.trim();
+      if(newTitle) {
+        customTitle = newTitle;
+        localStorage.setItem('epm_survey_title', customTitle);
+        document.getElementById('mainSurveyTitle').innerText = customTitle;
+        alert("✅ Título atualizado com sucesso!");
+      }
+    }
+
+    // --- REORDENAÇÃO DE ÁREAS E SUB-ÁREAS ---
+    function moveAreaUp(index) {
+      if (index <= 0) return;
+      const temp = surveyAreas[index];
+      surveyAreas[index] = surveyAreas[index - 1];
+      surveyAreas[index - 1] = temp;
+      saveAreasAndSync();
+    }
+
+    function moveAreaDown(index) {
+      if (index >= surveyAreas.length - 1) return;
+      const temp = surveyAreas[index];
+      surveyAreas[index] = surveyAreas[index + 1];
+      surveyAreas[index + 1] = temp;
+      saveAreasAndSync();
+    }
+
+    function moveSubAreaUp(areaId, subIndex) {
+      const area = surveyAreas.find(a => a.id === areaId);
+      if (!area || !area.subAreas || subIndex <= 0) return;
+      const temp = area.subAreas[subIndex];
+      area.subAreas[subIndex] = area.subAreas[subIndex - 1];
+      area.subAreas[subIndex - 1] = temp;
+      saveAreasAndSync();
+    }
+
+    function moveSubAreaDown(areaId, subIndex) {
+      const area = surveyAreas.find(a => a.id === areaId);
+      if (!area || !area.subAreas || subIndex >= area.subAreas.length - 1) return;
+      const temp = area.subAreas[subIndex];
+      area.subAreas[subIndex] = area.subAreas[subIndex + 1];
+      area.subAreas[subIndex + 1] = temp;
+      saveAreasAndSync();
+    }
+
+    function saveAreasAndSync() {
+      localStorage.setItem('epm_areas', JSON.stringify(surveyAreas));
+      renderAdminAreas();
+      renderSurveyForm();
+    }
+
+    // --- GERADOR DE FORMULÁRIO DE AVALIAÇÃO ---
+    function generateEvalFormHTML(formIdPrefix, isRequired = false) {
+      const reqAttr = isRequired ? 'required' : '';
+      const reqLabel = isRequired 
+        ? '<span class="text-xs font-bold text-orange-400">Classificação Geral da Área *</span><span class="text-[10px] text-amber-300 font-medium">(Obrigatório: escolha 1-5 ou N/A)</span>' 
+        : '<span class="text-xs font-bold text-slate-200">Classificação Geral da Sub-área (Facultativa)</span>';
+
+      return `
+        <div class="flex flex-wrap items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800 gap-2.5 mb-3 mt-2">
+          <div class="flex items-center gap-2">
+            ${reqLabel}
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="star-rating">
+              <input type="radio" id="star5_${formIdPrefix}" name="rating_${formIdPrefix}" value="5" ${reqAttr} /><label for="star5_${formIdPrefix}" title="5 - Excelente">★</label>
+              <input type="radio" id="star4_${formIdPrefix}" name="rating_${formIdPrefix}" value="4" /><label for="star4_${formIdPrefix}" title="4 - Muito Bom">★</label>
+              <input type="radio" id="star3_${formIdPrefix}" name="rating_${formIdPrefix}" value="3" /><label for="star3_${formIdPrefix}" title="3 - Satisfatório">★</label>
+              <input type="radio" id="star2_${formIdPrefix}" name="rating_${formIdPrefix}" value="2" /><label for="star2_${formIdPrefix}" title="2 - A Melhorar">★</label>
+              <input type="radio" id="star1_${formIdPrefix}" name="rating_${formIdPrefix}" value="1" /><label for="star1_${formIdPrefix}" title="1 - Crítico">★</label>
+            </div>
+            <label class="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-400 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-700 hover:text-slate-200 hover:border-slate-500 transition-all select-none">
+              <input type="radio" id="starNA_${formIdPrefix}" name="rating_${formIdPrefix}" value="NA" ${reqAttr}>
+              <span>Não sei / Não aplicável</span>
+            </label>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div><label class="block text-blue-400 font-semibold mb-1">📋 O que foi programado? (Facultativo)</label><textarea name="prog_${formIdPrefix}" rows="2" placeholder="Opcional..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 outline-none focus:border-blue-500"></textarea></div>
+          <div><label class="block text-green-400 font-semibold mb-1">✅ Concretizado (Facultativo)</label><textarea name="conc_${formIdPrefix}" rows="2" placeholder="Opcional..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 outline-none focus:border-green-500"></textarea></div>
+          <div><label class="block text-orange-400 font-semibold mb-1">❌ Não Concretizado (Facultativo)</label><textarea name="nao_${formIdPrefix}" rows="2" placeholder="Opcional..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 outline-none focus:border-orange-500"></textarea></div>
+          <div><label class="block text-red-400 font-semibold mb-1">⚠️ O que correu mal / A melhorar (Facultativo)</label><textarea name="mal_${formIdPrefix}" rows="2" placeholder="Opcional..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 outline-none focus:border-red-500"></textarea></div>
+          <div><label class="block text-teal-400 font-semibold mb-1">🌟 O que correu bem / Sucesso (Facultativo)</label><textarea name="bem_${formIdPrefix}" rows="2" placeholder="Opcional..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 outline-none focus:border-teal-500"></textarea></div>
+          <div><label class="block text-purple-400 font-semibold mb-1">💡 Opiniões para melhorar (Facultativo)</label><textarea name="opn_${formIdPrefix}" rows="2" placeholder="Opcional..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 outline-none focus:border-purple-500"></textarea></div>
+        </div>
+      `;
+    }
+
+    function renderSurveyForm() {
+      const container = document.getElementById('surveyAreasContainer');
+      container.innerHTML = '';
+
+      surveyAreas.forEach(area => {
+        const areaCard = document.createElement('div');
+        areaCard.className = "glass-card p-5 rounded-2xl border border-slate-700 space-y-4";
+        
+        let headerHtml = `
+          <div class="border-b border-slate-800 pb-2">
+            <h4 class="text-base font-bold text-white">${area.title}</h4>
+            <p class="text-[11px] text-slate-400 mt-1">${area.desc}</p>
+          </div>
+        `;
+        
+        if (area.subAreas && area.subAreas.length > 0) {
+          let tabsHtml = `<div class="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800">`;
+          let contentHtml = `<div class="mt-4 relative">`;
+
+          area.subAreas.forEach((sub, idx) => {
+            const activeCls = idx === 0 ? 'active' : '';
+            tabsHtml += `<button type="button" onclick="switchSubTab('${area.id}', '${sub.id}')" id="btn_sub_${sub.id}" class="sub-tab-btn ${activeCls} px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-400">${sub.title}</button>`;
+            contentHtml += `<div id="content_sub_${sub.id}" class="sub-tab-content ${activeCls}">
+                <div class="text-xs font-bold text-purple-400 mb-1">Sub-área facultativa: ${sub.title}</div>
+                ${generateEvalFormHTML(sub.id, false)}
+              </div>`;
+          });
+          
+          tabsHtml += `</div>`;
+          contentHtml += `</div>`;
+          areaCard.innerHTML = headerHtml + tabsHtml + contentHtml;
+        } else {
+          areaCard.innerHTML = headerHtml + generateEvalFormHTML(area.id, true);
+        }
+
+        container.appendChild(areaCard);
+      });
+    }
+
+    function switchSubTab(areaId, subId) {
+      const btn = document.getElementById(`btn_sub_${subId}`);
+      if (!btn) return;
+      const areaNode = btn.closest('.glass-card');
+      areaNode.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active', 'text-purple-400'));
+      areaNode.querySelectorAll('.sub-tab-content').forEach(c => c.classList.remove('active'));
+      
+      btn.classList.add('active', 'text-purple-400');
+      document.getElementById(`content_sub_${subId}`)?.classList.add('active');
+    }
+
+    // --- SUBMETER INQUÉRITO ---
+    function submitSurvey(e) {
+      e.preventDefault();
+      const form = e.target;
+
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+      
+      const newResponse = {
+        id: Date.now(),
+        date: new Date().toLocaleString('pt-PT'),
+        name: form.querySelector('#respName').value || 'Anónimo',
+        email: form.querySelector('#respEmail').value,
+        role: form.querySelector('#respRole').value,
+        generalComment: form.querySelector('#respGeneral').value,
+        areasData: {}
+      };
+
+      let sumRatings = 0;
+      let countRatings = 0;
+
+      surveyAreas.forEach(area => {
+        if (area.subAreas && area.subAreas.length > 0) {
+          let subData = {};
+          area.subAreas.forEach(sub => {
+            const rawVal = form.querySelector(`input[name="rating_${sub.id}"]:checked`)?.value || 'NA';
+            const numVal = parseInt(rawVal);
+            if (!isNaN(numVal) && numVal > 0) { 
+              sumRatings += numVal; 
+              countRatings++; 
+            }
+            subData[sub.id] = {
+              title: sub.title,
+              rating: rawVal,
+              prog: form.querySelector(`textarea[name="prog_${sub.id}"]`)?.value || '',
+              conc: form.querySelector(`textarea[name="conc_${sub.id}"]`)?.value || '',
+              nao: form.querySelector(`textarea[name="nao_${sub.id}"]`)?.value || '',
+              mal: form.querySelector(`textarea[name="mal_${sub.id}"]`)?.value || '',
+              bem: form.querySelector(`textarea[name="bem_${sub.id}"]`)?.value || '',
+              opn: form.querySelector(`textarea[name="opn_${sub.id}"]`)?.value || ''
+            };
+          });
+          newResponse.areasData[area.id] = { hasSubAreas: true, subData: subData };
+        } else {
+          const rawVal = form.querySelector(`input[name="rating_${area.id}"]:checked`)?.value || 'NA';
+          const numVal = parseInt(rawVal);
+          if (!isNaN(numVal) && numVal > 0) { 
+            sumRatings += numVal; 
+            countRatings++; 
+          }
+          
+          newResponse.areasData[area.id] = {
+            hasSubAreas: false,
+            rating: rawVal,
+            prog: form.querySelector(`textarea[name="prog_${area.id}"]`)?.value || '',
+            conc: form.querySelector(`textarea[name="conc_${area.id}"]`)?.value || '',
+            nao: form.querySelector(`textarea[name="nao_${area.id}"]`)?.value || '',
+            mal: form.querySelector(`textarea[name="mal_${area.id}"]`)?.value || '',
+            bem: form.querySelector(`textarea[name="bem_${area.id}"]`)?.value || '',
+            opn: form.querySelector(`textarea[name="opn_${area.id}"]`)?.value || '',
+          };
+        }
+      });
+
+      newResponse.avgScore = countRatings > 0 ? (sumRatings / countRatings).toFixed(1) : 'N/A';
+      
+      responses.unshift(newResponse);
+      localStorage.setItem('epm_responses', JSON.stringify(responses));
+      
+      updateDashboardData();
+      document.getElementById('submitSuccessModal').classList.remove('hidden');
+    }
+
+    function concludeSurvey() {
+      document.getElementById('submitSuccessModal').classList.add('hidden');
+      document.getElementById('surveyForm').reset();
+      renderSurveyForm();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // --- ADMIN ACCESS (PIN) ---
+    function openPinModal() { document.getElementById('pinModal').classList.remove('hidden'); }
+    function closePinModal() { document.getElementById('pinModal').classList.add('hidden'); document.getElementById('inputPin').value = ''; }
+    
+    function verifyPin() {
+      const savedPin = localStorage.getItem('admin_epm_pin') || '2027';
+      const input = document.getElementById('inputPin').value;
+      
+      if (input === savedPin) {
+        isAdmin = true;
+        closePinModal();
+        document.getElementById('publicView').classList.add('hidden');
+        document.getElementById('adminView').classList.remove('hidden');
+        document.getElementById('btnToggleAdmin').classList.add('hidden');
+        document.getElementById('btnLogout').classList.remove('hidden');
+        document.getElementById('modeBadge').innerText = "Modo Reservado (Admin)";
+        document.getElementById('modeBadge').className = "badge bg-red-500/20 text-red-400 border border-red-500/30";
+        updateDashboardData();
+        renderAdminAreas();
+      } else {
+        alert("❌ PIN Incorreto.");
+      }
+    }
+
+    function logoutAdmin() {
+      isAdmin = false;
+      document.getElementById('adminView').classList.add('hidden');
+      document.getElementById('publicView').classList.remove('hidden');
+      document.getElementById('btnLogout').classList.add('hidden');
+      document.getElementById('btnToggleAdmin').classList.remove('hidden');
+      document.getElementById('modeBadge').innerText = "Modo Inquérito (Público)";
+      document.getElementById('modeBadge').className = "badge bg-purple-500/20 text-purple-400 border border-purple-500/30";
+    }
+
+    function changePin() { document.getElementById('changePinModal').classList.remove('hidden'); }
+    function saveNewPin() {
+      const p1 = document.getElementById('newPin1').value;
+      const p2 = document.getElementById('newPin2').value;
+      if(p1 && p1 === p2) {
+        localStorage.setItem('admin_epm_pin', p1);
+        alert("✅ PIN alterado com sucesso!");
+        document.getElementById('changePinModal').classList.add('hidden');
+      } else {
+        alert("Os códigos PIN não coincidem.");
+      }
+    }
+
+    // --- ADMIN NAVIGATION ---
+    function switchAdminTab(tab) {
+      ['dashboard', 'respostas', 'config'].forEach(t => {
+        document.getElementById(`admin-${t}`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).classList.remove('active');
+      });
+      document.getElementById(`admin-${tab}`).classList.remove('hidden');
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    // --- SELEÇÃO, ELIMINAÇÃO EM LOTE E BACKUP DE TESTES ---
+    function toggleSelectAllResponses(forceState) {
+      const master = document.getElementById('selectAllHeader');
+      const state = forceState !== undefined ? forceState : !master.checked;
+      if(forceState === undefined) master.checked = state;
+      
+      document.querySelectorAll('.response-checkbox').forEach(cb => cb.checked = state);
+    }
+
+    function deleteSelectedResponses() {
+      const selectedIds = Array.from(document.querySelectorAll('.response-checkbox:checked')).map(cb => parseInt(cb.value));
+      if (selectedIds.length === 0) {
+        return alert("Selecione pelo menos uma resposta para apagar.");
+      }
+
+      if (confirm(`Tem a certeza que deseja apagar as ${selectedIds.length} respostas selecionadas?`)) {
+        responses = responses.filter(r => !selectedIds.includes(r.id));
+        localStorage.setItem('epm_responses', JSON.stringify(responses));
+        updateDashboardData();
+        alert("✅ Respostas apagadas com sucesso.");
+      }
+    }
+
+    function resetAndSaveTestSession() {
+      if (responses.length === 0) {
+        return alert("Não existem respostas ativas no inquérito para zerar.");
+      }
+
+      if (confirm("Deseja guardar as respostas atuais numa Sessão de Testes e ZERAR o inquérito para recolher respostas 100% reais?")) {
+        const testSessions = JSON.parse(localStorage.getItem('epm_test_sessions')) || [];
+        testSessions.push({
+          sessionId: "Sessao_Testes_" + new Date().toISOString().slice(0,10),
+          savedAt: new Date().toLocaleString('pt-PT'),
+          totalResponses: responses.length,
+          data: responses
+        });
+        localStorage.setItem('epm_test_sessions', JSON.stringify(testSessions));
+
+        responses = [];
+        localStorage.setItem('epm_responses', JSON.stringify([]));
+        updateDashboardData();
+        alert("✅ Sessão de testes guardada com sucesso e inquérito ZERADO para produção!");
+      }
+    }
+
+    // --- DASHBOARD & CHARTS ---
+    let chartAreasInst = null, chartRolesInst = null;
+    
+    function updateDashboardData() {
+      document.getElementById('countResponses').innerText = responses.length;
+      document.getElementById('kpiTotal').innerText = responses.length;
+      
+      if(responses.length === 0) {
+        document.getElementById('kpiAvg').innerText = "0.0";
+        document.getElementById('kpiTopArea').innerText = "-";
+        document.getElementById('kpiWorstArea').innerText = "-";
+        if (isAdmin) renderTable();
+        return;
+      }
+
+      let sumGlobal = 0, countGlobal = 0;
+      const roleCounts = {};
+      const areaScores = {};
+      surveyAreas.forEach(a => { areaScores[a.id] = { sum: 0, count: 0, title: a.title }; });
+
+      responses.forEach(r => {
+        if(r.avgScore !== 'N/A' && !isNaN(parseFloat(r.avgScore))) {
+          sumGlobal += parseFloat(r.avgScore);
+          countGlobal++;
+        }
+        roleCounts[r.role] = (roleCounts[r.role] || 0) + 1;
+        
+        surveyAreas.forEach(a => {
+          const ad = r.areasData[a.id];
+          if(ad) {
+            if(ad.hasSubAreas) {
+               let aSum = 0, aCount = 0;
+               Object.values(ad.subData).forEach(sub => {
+                 const n = parseInt(sub.rating);
+                 if(!isNaN(n) && n > 0) { aSum += n; aCount++; }
+               });
+               if(aCount > 0) { areaScores[a.id].sum += (aSum/aCount); areaScores[a.id].count++; }
+            } else {
+               const n = parseInt(ad.rating);
+               if(!isNaN(n) && n > 0) {
+                 areaScores[a.id].sum += n;
+                 areaScores[a.id].count++;
+               }
+            }
+          }
+        });
+      });
+
+      document.getElementById('kpiAvg').innerText = countGlobal > 0 ? (sumGlobal / countGlobal).toFixed(1) : "N/A";
+
+      let topArea = { name: '-', score: 0 };
+      let worstArea = { name: '-', score: 5 };
+      const labels = [], data = [];
+
+      for(let key in areaScores) {
+        if(areaScores[key].count > 0) {
+          const avg = areaScores[key].sum / areaScores[key].count;
+          labels.push(areaScores[key].title);
+          data.push(avg.toFixed(2));
+          if(avg > topArea.score) { topArea.score = avg; topArea.name = areaScores[key].title; }
+          if(avg < worstArea.score) { worstArea.score = avg; worstArea.name = areaScores[key].title; }
+        }
+      }
+
+      document.getElementById('kpiTopArea').innerText = topArea.name;
+      document.getElementById('kpiWorstArea').innerText = worstArea.name;
+
+      if(isAdmin) {
+        const ctxA = document.getElementById('chartAreas').getContext('2d');
+        if(chartAreasInst) chartAreasInst.destroy();
+        chartAreasInst = new Chart(ctxA, {
+          type: 'bar',
+          data: { labels: labels, datasets: [{ label: 'Média (1-5)', data: data, backgroundColor: 'rgba(249, 115, 22, 0.7)', borderRadius: 4 }] },
+          options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 5, ticks: {color: '#94a3b8'} }, x: { ticks: {color: '#f8fafc', font:{size:10}} } }, plugins: { legend: { display: false } } }
+        });
+
+        const ctxR = document.getElementById('chartRoles').getContext('2d');
+        if(chartRolesInst) chartRolesInst.destroy();
+        chartRolesInst = new Chart(ctxR, {
+          type: 'doughnut',
+          data: { labels: Object.keys(roleCounts), datasets: [{ data: Object.values(roleCounts), backgroundColor: ['#f97316', '#a855f7', '#3b82f6', '#22c55e', '#f59e0b'], borderWidth:0 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: {color:'#cbd5e1', font:{size:10}} } } }
+        });
+
+        renderTable();
+      }
+    }
+
+    // --- TABELA DE RESPOSTAS ---
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      responses.forEach((r, idx) => {
+        const scoreNum = parseFloat(r.avgScore);
+        let badgeClass = 'bg-slate-800 text-slate-400';
+        if (!isNaN(scoreNum)) {
+          badgeClass = scoreNum >= 4 ? 'bg-excel' : (scoreNum >= 3 ? 'bg-fair' : 'bg-critical');
+        }
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-3"><input type="checkbox" value="${r.id}" class="response-checkbox"></td>
+            <td class="p-3 font-mono text-slate-400">#${r.id.toString().slice(-4)}</td>
+            <td class="p-3">${r.date}</td>
+            <td class="p-3"><b>${r.name}</b><br><span class="text-[10px] text-slate-400">${r.role}</span></td>
+            <td class="p-3 text-center"><span class="badge ${badgeClass} font-mono">${r.avgScore} ${r.avgScore !== 'N/A' ? '★' : ''}</span></td>
+            <td class="p-3 truncate max-w-[150px] text-slate-400" title="${r.generalComment}">${r.generalComment || '-'}</td>
+            <td class="p-3 text-center">
+              <button onclick="viewResponse(${idx})" class="px-2 py-1 bg-slate-700 rounded text-[10px] hover:bg-slate-600">Ver</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function filterTable() {
+      const q = document.getElementById('searchTable').value.toLowerCase();
+      document.querySelectorAll('#tableBody tr').forEach(tr => {
+        tr.style.display = tr.innerText.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    // --- MODAL DE RESPOSTA ---
+    function getSemanticBadge(score) {
+      if(score === 'NA' || score === '0' || score === 0 || !score) {
+        return '<span class="badge bg-slate-800 text-slate-400">Não sei / Não aplicável</span>';
+      }
+      if(score == 5) return '<span class="badge bg-excel">5 ★ Excelente</span>';
+      if(score == 4) return '<span class="badge bg-good">4 ★ Muito Bom</span>';
+      if(score == 3) return '<span class="badge bg-fair">3 ★ Satisfatório</span>';
+      if(score == 2) return '<span class="badge bg-weak">2 ★ A Melhorar</span>';
+      if(score == 1) return '<span class="badge bg-critical">1 ★ Crítico</span>';
+      return '<span class="badge bg-slate-800 text-slate-400">N/A</span>';
+    }
+
+    function viewResponse(idx) {
+      const r = responses[idx];
+      document.getElementById('vrId').innerText = `#${r.id.toString().slice(-4)}`;
+      
+      let html = `
+        <div class="grid grid-cols-2 gap-2 bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+          <div><span class="text-slate-500 block">Nome / Perfil:</span> <b>${r.name}</b> (${r.role})</div>
+          <div><span class="text-slate-500 block">Data/Hora:</span> <b>${r.date}</b></div>
+          <div class="col-span-2 mt-2"><span class="text-slate-500 block">Comentário Geral:</span> <p>${r.generalComment || 'Sem comentários gerais.'}</p></div>
+        </div>
+        <div class="space-y-4 mt-4">
+      `;
+
+      surveyAreas.forEach(a => {
+        const ad = r.areasData[a.id];
+        if(!ad) return;
+
+        if (ad.hasSubAreas) {
+           let hasAnyData = Object.values(ad.subData).some(s => s.rating && s.rating !== 'NA');
+           if(hasAnyData) {
+             html += `<div class="border border-slate-700 rounded-xl p-3 bg-slate-900/30"><b class="text-white text-sm mb-2 block">${a.title}</b>`;
+             Object.values(ad.subData).forEach(sub => {
+               if(sub.rating) {
+                 html += `
+                  <div class="mb-3 border-l-2 border-slate-600 pl-3">
+                    <div class="flex justify-between items-center mb-1"><span class="text-xs font-semibold text-purple-300">${sub.title}</span> ${getSemanticBadge(sub.rating)}</div>
+                    <div class="grid grid-cols-2 gap-2 text-[10px] opacity-80">
+                      <div class="bg-slate-950 p-1.5 rounded"><span class="text-blue-400">Prog:</span> ${sub.prog || '-'}</div>
+                      <div class="bg-slate-950 p-1.5 rounded"><span class="text-green-400">Conc:</span> ${sub.conc || '-'}</div>
+                      <div class="bg-slate-950 p-1.5 rounded"><span class="text-orange-400">Não Conc:</span> ${sub.nao || '-'}</div>
+                      <div class="bg-slate-950 p-1.5 rounded"><span class="text-red-400">Mal:</span> ${sub.mal || '-'}</div>
+                      <div class="bg-slate-950 p-1.5 rounded"><span class="text-teal-400">Bem:</span> ${sub.bem || '-'}</div>
+                      <div class="bg-slate-950 p-1.5 rounded"><span class="text-purple-400">Opinião:</span> ${sub.opn || '-'}</div>
+                    </div>
+                  </div>
+                 `;
+               }
+             });
+             html += `</div>`;
+           }
+        } else if(ad.rating) {
+          html += `
+            <div class="border border-slate-800 rounded-xl p-3 bg-slate-900/30">
+              <div class="flex justify-between items-center mb-2">
+                <b class="text-white">${a.title}</b>
+                ${getSemanticBadge(ad.rating)}
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[10px] opacity-80">
+                <div class="bg-slate-950 p-1.5 rounded"><span class="text-blue-400">Prog:</span> ${ad.prog || '-'}</div>
+                <div class="bg-slate-950 p-1.5 rounded"><span class="text-green-400">Conc:</span> ${ad.conc || '-'}</div>
+                <div class="bg-slate-950 p-1.5 rounded"><span class="text-orange-400">Não Conc:</span> ${ad.nao || '-'}</div>
+                <div class="bg-slate-950 p-1.5 rounded"><span class="text-red-400">Mal:</span> ${ad.mal || '-'}</div>
+                <div class="bg-slate-950 p-1.5 rounded"><span class="text-teal-400">Bem:</span> ${ad.bem || '-'}</div>
+                <div class="bg-slate-950 p-1.5 rounded"><span class="text-purple-400">Opinião:</span> ${ad.opn || '-'}</div>
+              </div>
+            </div>
+          `;
+        }
+      });
+      html += `</div>`;
+      document.getElementById('vrContent').innerHTML = html;
+      document.getElementById('viewResponseModal').classList.remove('hidden');
+    }
+
+    // --- GESTÃO & REORDENAÇÃO DE ÁREAS (CONFIG ADMIN) ---
+    function renderAdminAreas() {
+      const container = document.getElementById('adminAreasList');
+      container.innerHTML = '';
+      
+      surveyAreas.forEach((a, idx) => {
+        let subAreasHtml = '';
+        if(a.subAreas && a.subAreas.length > 0) {
+          subAreasHtml = `
+            <div class="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1.5 w-full">
+              <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">Ordem das Sub-áreas:</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                ${a.subAreas.map((sub, sIdx) => `
+                  <div class="flex items-center justify-between bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800 text-[11px]">
+                    <span class="truncate text-slate-300 font-medium">${sub.title}</span>
+                    <div class="flex gap-1 shrink-0 ml-1">
+                      <button type="button" onclick="moveSubAreaUp('${a.id}', ${sIdx})" class="p-0.5 px-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] ${sIdx === 0 ? 'opacity-30 cursor-not-allowed' : ''}">⬆️</button>
+                      <button type="button" onclick="moveSubAreaDown('${a.id}', ${sIdx})" class="p-0.5 px-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] ${sIdx === a.subAreas.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}">⬇️</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        const areaCard = document.createElement('div');
+        areaCard.className = "bg-slate-900 p-4 rounded-2xl border border-slate-700 flex flex-col items-start justify-between gap-2 shadow-lg";
+        
+        areaCard.innerHTML = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
+            <div>
+              <b class="text-sm text-white flex items-center gap-2">${a.title}</b>
+              <p class="text-[11px] text-slate-400 mt-0.5">${a.desc}</p>
+            </div>
+            
+            <div class="flex items-center gap-1.5 shrink-0 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+              <button type="button" onclick="moveAreaUp(${idx})" title="Mover Área para Cima" class="p-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-all ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}">
+                ⬆️ Subir
+              </button>
+              <button type="button" onclick="moveAreaDown(${idx})" title="Mover Área para Baixo" class="p-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition-all ${idx === surveyAreas.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}">
+                ⬇️ Descer
+              </button>
+              <button type="button" onclick="editArea('${a.id}')" class="p-1.5 px-2.5 bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 rounded-lg text-xs font-bold border border-blue-700/50">
+                ✏️ Editar
+              </button>
+              <button type="button" onclick="deleteArea(${idx})" class="p-1.5 px-2 bg-red-950/50 hover:bg-red-900 text-red-300 rounded-lg text-xs font-bold border border-red-800/50">
+                🗑️
+              </button>
+            </div>
+          </div>
+          ${subAreasHtml}
+        `;
+
+        container.appendChild(areaCard);
+      });
+    }
+
+    function openNewAreaModal() { 
+      document.getElementById('areaModalTitle').innerText = "Adicionar Nova Área";
+      document.getElementById('editAreaId').value = "";
+      document.getElementById('newAreaTitle').value = "";
+      document.getElementById('newAreaDesc').value = "";
+      currentModalSubAreas = [];
+      renderModalSubAreas();
+      document.getElementById('newAreaModal').classList.remove('hidden'); 
+    }
+    
+    function closeAreaModal() {
+      document.getElementById('newAreaModal').classList.add('hidden');
+    }
+
+    function renderModalSubAreas() {
+      const container = document.getElementById('subAreasContainerList');
+      container.innerHTML = '';
+
+      currentModalSubAreas.forEach((sub, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex gap-1.5 items-center';
+        row.innerHTML = `
+          <input type="text" class="sub-area-input flex-1 bg-slate-950 border border-slate-600 rounded-xl px-3 py-1.5 text-white text-xs outline-none focus:border-orange-500" value="${sub.title}" placeholder="Nome da Sub-área" oninput="currentModalSubAreas[${idx}].title = this.value">
+          <button type="button" onclick="moveModalSubAreaUp(${idx})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold ${idx === 0 ? 'opacity-30 cursor-not-allowed' : ''}">⬆️</button>
+          <button type="button" onclick="moveModalSubAreaDown(${idx})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold ${idx === currentModalSubAreas.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}">⬇️</button>
+          <button type="button" onclick="removeModalSubArea(${idx})" class="px-2 py-1 bg-red-950/60 hover:bg-red-900 text-red-400 font-bold text-xs rounded-lg">✕</button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function addModalSubArea(val = '') {
+      currentModalSubAreas.push({ id: `sub_${Date.now()}_${Math.floor(Math.random()*100)}`, title: val });
+      renderModalSubAreas();
+    }
+
+    function moveModalSubAreaUp(idx) {
+      if (idx <= 0) return;
+      const temp = currentModalSubAreas[idx];
+      currentModalSubAreas[idx] = currentModalSubAreas[idx - 1];
+      currentModalSubAreas[idx - 1] = temp;
+      renderModalSubAreas();
+    }
+
+    function moveModalSubAreaDown(idx) {
+      if (idx >= currentModalSubAreas.length - 1) return;
+      const temp = currentModalSubAreas[idx];
+      currentModalSubAreas[idx] = currentModalSubAreas[idx + 1];
+      currentModalSubAreas[idx + 1] = temp;
+      renderModalSubAreas();
+    }
+
+    function removeModalSubArea(idx) {
+      currentModalSubAreas.splice(idx, 1);
+      renderModalSubAreas();
+    }
+
+    function editArea(id) {
+      const area = surveyAreas.find(a => a.id === id);
+      if(!area) return;
+      document.getElementById('areaModalTitle').innerText = "Editar Área / Sub-áreas";
+      document.getElementById('editAreaId').value = area.id;
+      document.getElementById('newAreaTitle').value = area.title;
+      document.getElementById('newAreaDesc').value = area.desc;
+      
+      currentModalSubAreas = area.subAreas ? JSON.parse(JSON.stringify(area.subAreas)) : [];
+      renderModalSubAreas();
+      document.getElementById('newAreaModal').classList.remove('hidden');
+    }
+
+    function saveNewArea() {
+      const t = document.getElementById('newAreaTitle').value.trim();
+      const d = document.getElementById('newAreaDesc').value.trim();
+      const editId = document.getElementById('editAreaId').value;
+      if(!t) return alert("O Título da área é obrigatório.");
+
+      const subs = currentModalSubAreas.filter(s => s.title.trim() !== '');
+
+      if(editId) {
+        const area = surveyAreas.find(a => a.id === editId);
+        area.title = t;
+        area.desc = d;
+        area.subAreas = subs; 
+      } else {
+        surveyAreas.push({ id: "area_" + Date.now(), title: t, desc: d, subAreas: subs });
+      }
+
+      saveAreasAndSync();
+      closeAreaModal();
+    }
+
+    function deleteArea(idx) {
+      if(confirm(`Tem a certeza que deseja apagar a área "${surveyAreas[idx].title}"?`)) {
+        surveyAreas.splice(idx, 1);
+        saveAreasAndSync();
+      }
+    }
+
+    // --- DEMO DATA & EXPORT ---
+    function generateDemoData() {
+      const roles = ["Pai / Encarregado", "Aluno Finalista", "Aluno Geral", "Professor / Staff"];
+      for(let i=0; i<50; i++) {
+        let rDate = new Date();
+        rDate.setHours(rDate.getHours() - Math.floor(Math.random()*48));
+        
+        let newResp = {
+          id: Date.now() + i, date: rDate.toLocaleString('pt-PT'),
+          name: "Participante Demo " + i, email: "",
+          role: roles[Math.floor(Math.random()*roles.length)],
+          generalComment: "Festa espetacular mas com muita fila na comida.",
+          areasData: {}
+        };
+        
+        let sum = 0, count = 0;
+        surveyAreas.forEach(a => {
+          let rt = Math.random() < 0.1 ? "NA" : (Math.floor(Math.random() * 5) + 1); 
+          if(rt !== "NA") { sum += rt; count++; }
+          newResp.areasData[a.id] = { rating: rt, prog: "Tudo bem", conc: "Ok", nao: "-", mal: "-", bem: "Ótimo", opn: "-" };
+        });
+        newResp.avgScore = count > 0 ? (sum / count).toFixed(1) : "N/A";
+        responses.push(newResp);
+      }
+      localStorage.setItem('epm_responses', JSON.stringify(responses));
+      updateDashboardData();
+      alert("✅ 50 respostas de demonstração geradas com sucesso!");
+    }
+
+    function exportCSV() {
+      if(responses.length === 0) return alert("Sem respostas para exportar.");
+      let csv = "ID;Data;Nome;Perfil;Media;Comentario\n";
+      responses.forEach(r => {
+        csv += `${r.id};${r.date};${r.name};${r.role};${r.avgScore};"${(r.generalComment || '').replace(/"/g, '""')}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "respostas_halloween_epm.csv";
+      link.click();
+    }
+
+    function exportExcel() {
+      if(responses.length === 0) return alert("Sem respostas para exportar.");
+
+      const responseData = responses.map(r => {
+        const row = {
+          "ID": `#${r.id.toString().slice(-4)}`,
+          "Data/Hora": r.date,
+          "Nome": r.name || "Anónimo",
+          "Email": r.email || "-",
+          "Perfil": r.role,
+          "Média Global (1-5)": r.avgScore,
+          "Comentário Geral": r.generalComment || "-"
+        };
+
+        surveyAreas.forEach(a => {
+          const ad = r.areasData[a.id];
+          if(ad) {
+            if(ad.hasSubAreas) {
+              Object.values(ad.subData).forEach(sub => {
+                row[`${a.title} -> ${sub.title} (Nota)`] = sub.rating;
+                row[`${a.title} -> ${sub.title} (A melhorar)`] = sub.mal || "";
+                row[`${a.title} -> ${sub.title} (Sucesso)`] = sub.bem || "";
+              });
+            } else {
+              row[`${a.title} (Nota)`] = ad.rating;
+              row[`${a.title} (A melhorar)`] = ad.mal || "";
+              row[`${a.title} (Sucesso)`] = ad.bem || "";
+            }
+          }
+        });
+        return row;
+      });
+
+      const summaryData = surveyAreas.map(a => {
+        let sum = 0, count = 0;
+        responses.forEach(r => {
+          const ad = r.areasData[a.id];
+          if(ad) {
+            if(ad.hasSubAreas) {
+              let aSum = 0, aCount = 0;
+              Object.values(ad.subData).forEach(sub => {
+                const n = parseInt(sub.rating);
+                if(!isNaN(n) && n > 0) { aSum += n; aCount++; }
+              });
+              if(aCount > 0) { sum += (aSum / aCount); count++; }
+            } else {
+              const n = parseInt(ad.rating);
+              if(!isNaN(n) && n > 0) { sum += n; count++; }
+            }
+          }
+        });
+        return {
+          "Área Operacional": a.title,
+          "Descrição / Escopo": a.desc,
+          "Média Ponderada (1-5)": count > 0 ? (sum / count).toFixed(2) : "N/A",
+          "Total de Avaliações Submetidas": count
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      const wsResponses = XLSX.utils.json_to_sheet(responseData);
+
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo de Médias");
+      XLSX.utils.book_append_sheet(wb, wsResponses, "Respostas Detalhadas");
+
+      XLSX.writeFile(wb, "Relatorio_Avaliacao_Halloween_EPM.xlsx");
+    }
+
+    function exportPDF() {
+      if(responses.length === 0) return alert("Sem dados no relatório para exportar.");
+      
+      const adminView = document.getElementById('adminView');
+      if (typeof html2pdf !== 'undefined') {
+        const opt = {
+          margin:       0.2,
+          filename:     'Relatorio_Gestao_Halloween_EPM.pdf',
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, logging: false, useCORS: true },
+          jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+        html2pdf().set(opt).from(adminView).save().catch(() => {
+          window.print();
+        });
+      } else {
+        window.print();
+      }
+    }
+  </script>
+</body>
+</html>
